@@ -1,4 +1,4 @@
-## Django REST Framework Complete Authentication API
+## Django REST Framework Complete Authentication API with Simple JWT
 ### Video Link:- https://youtu.be/lo7lBD9ynVc
 
 ## To Run this Project follow below:
