@@ -4,13 +4,25 @@ from django.utils.encoding import smart_str, force_bytes, DjangoUnicodeDecodeErr
 from django.utils.http import urlsafe_base64_decode, urlsafe_base64_encode
 from django.contrib.auth.tokens import PasswordResetTokenGenerator
 from account.utils import Util
+from rest_framework.authtoken.models import Token
+
+class PhoneNumberCheckerSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = User
+        fields = ['phone_number']
+        
+    def validate(self, attrs):
+        phone_number = attrs.get('phone_number')
+        if User.objects.filter(phone_number=phone_number).exists():
+            raise serializers.ValidationError("Phone number already exists.")
+        return attrs
 
 class UserRegistrationSerializer(serializers.ModelSerializer):
   # We are writing this becoz we need confirm password field in our Registratin Request
-  password2 = serializers.CharField(style={'input_type':'password'}, write_only=True)
+  confirm_password = serializers.CharField(style={'input_type':'password'}, write_only=True)
   class Meta:
     model = User
-    fields=['email', 'name', 'password', 'password2', 'tc']
+    fields=['phone_number','email', 'first_name','last_name', 'password', 'confirm_password']
     extra_kwargs={
       'password':{'write_only':True}
     }
@@ -18,8 +30,8 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
   # Validating Password and Confirm Password while Registration
   def validate(self, attrs):
     password = attrs.get('password')
-    password2 = attrs.get('password2')
-    if password != password2:
+    confirm_password = attrs.get('confirm_password')
+    if password != confirm_password:
       raise serializers.ValidationError("Password and Confirm Password doesn't match")
     return attrs
 
@@ -27,15 +39,15 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
     return User.objects.create_user(**validate_data)
 
 class UserLoginSerializer(serializers.ModelSerializer):
-  email = serializers.EmailField(max_length=255)
+  phone_number = serializers.CharField(max_length=15,min_length = 4)
   class Meta:
     model = User
-    fields = ['email', 'password']
+    fields = ['phone_number', 'password']
 
 class UserProfileSerializer(serializers.ModelSerializer):
   class Meta:
     model = User
-    fields = ['id', 'email', 'name']
+    fields = ['id', 'email', 'first_name','last_name', 'phone_number']
 
 class UserChangePasswordSerializer(serializers.Serializer):
   password = serializers.CharField(max_length=255, style={'input_type':'password'}, write_only=True)
@@ -84,12 +96,12 @@ class UserPasswordResetSerializer(serializers.Serializer):
   password = serializers.CharField(max_length=255, style={'input_type':'password'}, write_only=True)
   password2 = serializers.CharField(max_length=255, style={'input_type':'password'}, write_only=True)
   class Meta:
-    fields = ['password', 'password2']
+    fields = ['password', 'confirm_password']
 
   def validate(self, attrs):
     try:
       password = attrs.get('password')
-      password2 = attrs.get('password2')
+      password2 = attrs.get('confirm_password')
       uid = self.context.get('uid')
       token = self.context.get('token')
       if password != password2:
@@ -104,4 +116,3 @@ class UserPasswordResetSerializer(serializers.Serializer):
     except DjangoUnicodeDecodeError as identifier:
       PasswordResetTokenGenerator().check_token(user, token)
       raise serializers.ValidationError('Token is not Valid or Expired')
-  
